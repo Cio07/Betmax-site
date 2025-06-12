@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>BetMax - Online Bahis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; }
+    header { background: #1f1f1f; padding: 20px; text-align: center; }
+    nav a { margin: 0 15px; color: #fff; text-decoration: none; }
+    main { padding: 30px; text-align: center; }
+    .btn { background: #28a745; color: #fff; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+    .match, .casino-game { background: #222; padding: 15px; margin: 10px auto; width: 300px; border-radius: 10px; }
+    .coupon, .history, .admin-panel { margin-top: 20px; background: #1a1a1a; padding: 20px; border-radius: 10px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+    .modal-content { background: #333; padding: 20px; border-radius: 10px; width: 300px; }
+    input, select { width: 100%; margin: 10px 0; padding: 8px; border: none; border-radius: 5px; }
+    @media (max-width: 600px) {
+      .match, .casino-game { width: 90%; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>BetMax</h1>
+    <nav>
+      <a href="#">Ana Sayfa</a>
+      <a href="#">Spor</a>
+      <a href="#">Casino</a>
+      <a href="#" onclick="openModal('login')">Giriş</a>
+      <a href="#" onclick="openModal('register')">Kayıt</a>
+      <a href="#" onclick="toggleAdminPanel()">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2>Hoş Geldin, <span id="username">Misafir</span></h2>
+    <p>Bakiye: <strong><span id="balance">₺0</span></strong></p>
+
+    <div class="match">
+      <p>Galatasaray vs Fenerbahçe</p>
+      <button class="btn" onclick="addToCoupon('Galatasaray', 1.80)">1 - 1.80</button>
+      <button class="btn" onclick="addToCoupon('Beraberlik', 3.20)">X - 3.20</button>
+      <button class="btn" onclick="addToCoupon('Fenerbahçe', 2.10)">2 - 2.10</button>
+    </div>
+
+    <div class="casino-game">
+      <h3>🎰 Slot Oyunu</h3>
+      <button class="btn" onclick="playSlot()">Oyna (₺20)</button>
+    </div>
+
+    <div class="coupon">
+      <h3>Bahis Kuponu</h3>
+      <ul id="couponList"></ul>
+      <p>Toplam Oran: <span id="totalOdds">0</span></p>
+      <p>Miktar: <input type="number" id="betAmount" value="50"></p>
+      <button class="btn" onclick="placeBet()">Bahis Yap</button>
+    </div>
+
+    <div class="history">
+      <h3>📜 Bahis Geçmişi</h3>
+      <ul id="betHistory"></ul>
+    </div>
+
+    <div class="admin-panel" id="adminPanel" style="display:none">
+      <h3>🔐 Admin Panel</h3>
+      <button class="btn" onclick="resetBalance()">Tüm Kullanıcı Bakiyelerini Sıfırla</button>
+    </div>
+  </main>
+
+  <!-- Giriş Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <h3>Giriş Yap</h3>
+      <input type="text" id="loginUser" placeholder="Kullanıcı Adı">
+      <input type="password" id="loginPass" placeholder="Şifre">
+      <button class="btn" onclick="login()">Giriş</button>
+    </div>
+  </div>
+
+  <!-- Kayıt Modal -->
+  <div class="modal" id="registerModal">
+    <div class="modal-content">
+      <h3>Kayıt Ol</h3>
+      <input type="text" id="registerUser" placeholder="Kullanıcı Adı">
+      <input type="password" id="registerPass" placeholder="Şifre">
+      <button class="btn" onclick="register()">Kayıt</button>
+    </div>
+  </div>
+
+  <script>
+    let totalOdds = 0;
+    let currentUser = null;
+
+    const updateUserDisplay = () => {
+      const storedUser = JSON.parse(localStorage.getItem("currentUser"));
+      if (storedUser) {
+        currentUser = storedUser;
+        document.getElementById("username").textContent = currentUser.username;
+        document.getElementById("balance").textContent = `₺${currentUser.balance.toFixed(2)}`;
+        displayHistory();
+      }
+    };
+
+    const saveUser = () => {
+      localStorage.setItem("user_" + currentUser.username, JSON.stringify(currentUser));
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    };
+
+    function addToCoupon(name, odd) {
+      const list = document.getElementById('couponList');
+      const li = document.createElement('li');
+      li.textContent = `${name} @ ${odd}`;
+      list.appendChild(li);
+      totalOdds += odd;
+      document.getElementById('totalOdds').textContent = totalOdds.toFixed(2);
+    }
+
+    function placeBet() {
+      const betAmount = parseFloat(document.getElementById('betAmount').value);
+      if (!currentUser) return alert("Lütfen giriş yapın.");
+      if (betAmount > currentUser.balance) return alert("Yetersiz bakiye!");
+
+      const kazanc = betAmount * totalOdds;
+      currentUser.balance -= betAmount;
+      currentUser.history = currentUser.history || [];
+      currentUser.history.push({
+        type: "bahis",
+        amount: betAmount,
+        odds: totalOdds,
+        result: "Bekleniyor"
+      });
+      saveUser();
+      updateUserDisplay();
+
+      alert(`Bahis yapıldı! Olası kazanç: ₺${kazanc.toFixed(2)}`);
+      document.getElementById('couponList').innerHTML = '';
+      document.getElementById('totalOdds').textContent = '0';
+      totalOdds = 0;
+    }
+
+    function playSlot() {
+      if (!currentUser) return alert("Giriş yapmanız gerekiyor.");
+      if (currentUser.balance < 20) return alert("Yetersiz bakiye!");
+
+      const win = Math.random() < 0.3;
+      const gain = win ? 100 : 0;
+      currentUser.balance += gain - 20;
+      currentUser.history = currentUser.history || [];
+      currentUser.history.push({
+        type: "slot",
+        amount: 20,
+        result: win ? `Kazandı +₺${gain}` : "Kaybetti"
+      });
+      saveUser();
+      updateUserDisplay();
+      alert(win ? `Tebrikler! ₺${gain} kazandınız!` : "Kaybettiniz, tekrar deneyin.");
+    }
+
+    function displayHistory() {
+      const list = document.getElementById("betHistory");
+      list.innerHTML = "";
+      (currentUser.history || []).forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = `${item.type.toUpperCase()} - ₺${item.amount} - ${item.result}`;
+        list.appendChild(li);
+      });
+    }
+
+    function openModal(type) {
+      document.getElementById(type + 'Modal').style.display = 'flex';
+    }
+
+    function toggleAdminPanel() {
+      const panel = document.getElementById("adminPanel");
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+    }
+
+    function resetBalance() {
+      for (let key in localStorage) {
+        if (key.startsWith("user_")) {
+          let user = JSON.parse(localStorage.getItem(key));
+          user.balance = 1000;
+          localStorage.setItem(key, JSON.stringify(user));
+        }
+      }
+      alert("Tüm kullanıcı bakiyeleri sıfırlandı.");
+      updateUserDisplay();
+    }
+
+    function login() {
+      const username = document.getElementById('loginUser').value;
+      const password = document.getElementById('loginPass').value;
+      const stored = JSON.parse(localStorage.getItem("user_" + username));
+      if (!stored || stored.password !== password) return alert("Giriş başarısız!");
+
+      localStorage.setItem("currentUser", JSON.stringify(stored));
+      updateUserDisplay();
+      document.getElementById('loginModal').style.display = 'none';
+    }
+
+    function register() {
+      const username = document.getElementById('registerUser').value;
+      const password = document.getElementById('registerPass').value;
+
+      if (localStorage.getItem("user_" + username)) return alert("Bu kullanıcı zaten var!");
+
+      const user = { username, password, balance: 1000, history: [] };
+      localStorage.setItem("user_" + username, JSON.stringify(user));
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      updateUserDisplay();
+      document.getElementById('registerModal').style.display = 'none';
+    }
+
+    window.onclick = function(e) {
+      if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+      }
+    }
+
+    window.onload = updateUserDisplay;
+  </script>
+</body>
+</html>
